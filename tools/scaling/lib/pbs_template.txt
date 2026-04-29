@@ -1,0 +1,16 @@
+#!/bin/bash
+#PBS -N {{base_name}}_{{n_nodes}}
+#PBS -A gpu_hack
+#PBS -l select={{n_nodes}}
+#PBS -l walltime=01:00:00
+#PBS -l filesystems=home:flare
+#PBS -q gpu_hack
+#PBS -o /home/quocdang1998/OpenSn/opensn-chipstar/tools/scaling/output/strong/{{base_name}}_{{n_nodes}}.out
+#PBS -e /home/quocdang1998/OpenSn/opensn-chipstar/tools/scaling/output/strong/{{base_name}}_{{n_nodes}}.err
+{{gpu_options}}
+
+cd $PBS_O_WORKDIR
+mpiexec -n {{n_nodes * n_tasks}} --ppn {{n_tasks}} \
+  --cpu-bind=list:1-8:9-16:17-24:25-32:33-40:41-48:53-60:61-68:69-76:77-84:85-92:93-100 \
+  --env OMP_NUM_THREADS={{n_cores}} --env OMP_PLACES=cores \
+  gpu_tile_compact.sh {{opensn_binary}} -i {{input_script}}
