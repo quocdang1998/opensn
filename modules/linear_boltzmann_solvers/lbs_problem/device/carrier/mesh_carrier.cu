@@ -52,8 +52,8 @@ MeshCarrier::ComputeSize(LBSProblem& lbs_problem)
       discretization.GetCellMapping(cell).GetFaceNodeMappings();
     for (int f = 0; f < cell_num_faces; ++f)
     {
-      // num_face_nodes
-      alloc_size += sizeof(std::uint64_t);
+      // num_face_nodes and cummulative face node offset
+      alloc_size += 2 * sizeof(std::uint32_t);
       // pointer to outflow if applicable
       alloc_size += sizeof(std::uintptr_t);
       // normal vector
@@ -151,15 +151,18 @@ MeshCarrier::Assemble(LBSProblem& lbs_problem, TotalXSCarrier& xs, OutflowCarrie
     const std::vector<Vector<double>>& IntS_shapeI_vectors = unit_matrices.intS_shapeI;
     const std::vector<std::vector<int>>& face_node_mappings = cell_mapping.GetFaceNodeMappings();
     char* face_data = cell_data;
+    std::uint32_t face_node_offset = 0;
     for (int f = 0; f < cell_num_faces; ++f)
     {
       const CellFace& face = cell.faces[f];
       *(offset_face_data++) = face_data - cell_data;
-      // number of face node
-      std::uint64_t* num_face_nodes_data = reinterpret_cast<std::uint64_t*>(face_data);
-      std::size_t num_face_nodes = face_node_mappings[f].size();
-      *(num_face_nodes_data++) = num_face_nodes;
-      face_data = reinterpret_cast<char*>(num_face_nodes_data);
+      // number of face node and face node offset
+      std::uint32_t* face_node_data = reinterpret_cast<std::uint32_t*>(face_data);
+      std::uint32_t num_face_nodes = face_node_mappings[f].size();
+      *(face_node_data++) = num_face_nodes;
+      *(face_node_data++) = face_node_offset;
+      face_node_offset += num_face_nodes;
+      face_data = reinterpret_cast<char*>(face_node_data);
       // pointer to outflow
       double** outflow_data = reinterpret_cast<double**>(face_data);
       double* face_outflow = nullptr;

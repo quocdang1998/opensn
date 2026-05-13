@@ -16,9 +16,10 @@ struct FaceView
   __inline_host_dev__ FaceView() {}
   __inline_host_dev__ void Update(const char* face_data)
   {
-    // number of face nodes
-    const std::uint64_t* num_face_nodes_data = reinterpret_cast<const std::uint64_t*>(face_data);
+    // number of face nodes and face node offset
+    const std::uint32_t* num_face_nodes_data = reinterpret_cast<const std::uint32_t*>(face_data);
     num_face_nodes = *(num_face_nodes_data++);
+    face_node_offset = *(num_face_nodes_data++);
     face_data = reinterpret_cast<const char*>(num_face_nodes_data);
     // outflow
     double* const* outflow_data = reinterpret_cast<double* const*>(face_data);
@@ -26,10 +27,10 @@ struct FaceView
     face_data = reinterpret_cast<const char*>(outflow_data);
     // normal
     const double* normal_vector_data = reinterpret_cast<const double*>(face_data);
-    normal[0] = *(normal_vector_data++);
-    normal[1] = *(normal_vector_data++);
-    normal[2] = *(normal_vector_data++);
-    face_data = reinterpret_cast<const char*>(normal_vector_data);
+    normal[0] = normal_vector_data[0];
+    normal[1] = normal_vector_data[1];
+    normal[2] = normal_vector_data[2];
+    face_data = reinterpret_cast<const char*>(normal_vector_data+3);
     // M_surf matrix
     M_surf_data = reinterpret_cast<const double*>(face_data);
     face_data = reinterpret_cast<const char*>(M_surf_data + num_face_nodes * num_face_nodes);
@@ -41,6 +42,7 @@ struct FaceView
   }
 
   std::uint32_t num_face_nodes;
+  std::uint32_t face_node_offset;
   double* outflow;
   std::array<double, 3> normal;
   const double* M_surf_data;
