@@ -71,12 +71,11 @@ ComputeSurfaceIntegral(double* sweep_matrix,
                        const unsigned int& group_idx,
                        const Arguments<t>& args)
 {
-  // loop over each face
   for (std::uint32_t f = 0; f < cell.num_faces; ++f)
   {
     // get face view
     FaceView face;
-    cell.GetFaceView(face, f);
+    const double* face_M_surf_data = cell.GetFaceView<FaceViewGetter::WithMSurf>(face, f);
     // determine if this face is incoming
     NodeIndexType<t> idx(cell_edge_data[face.face_node_offset]);
     if (not idx.IsUndefined() and not idx.IsOutgoing())
@@ -91,7 +90,7 @@ ComputeSurfaceIntegral(double* sweep_matrix,
         for (std::uint32_t fj = 0; fj < face.num_face_nodes; ++fj)
         {
           std::uint32_t j = face.cell_mapping_data[fj];
-          double mu_Nij = -mu * face.M_surf_data[fi * face.num_face_nodes + fj];
+          double mu_Nij = -mu * face_M_surf_data[fi * face.num_face_nodes + fj];
           Ai[j] += mu_Nij;
           double* upwind_psi;
           if constexpr (t == SweepType::AAH)
@@ -167,12 +166,12 @@ WritePsiToFludsAndOutflow(double* psi,
                           const unsigned int& group_idx,
                           const Arguments<t>& args)
 {
-  // loop over each face
   for (std::uint32_t f = 0; f < cell.num_faces; ++f)
   {
     // get face view
     FaceView face;
-    cell.GetFaceView(face, f);
+    const double* face_IntS_shapeI_data =
+      cell.GetFaceView<FaceViewGetter::WithSurfIntegrals>(face, f);
     // determine if this face is outgoing
     NodeIndexType<t> idx(cell_edge_data[face.face_node_offset]);
     if (not idx.IsUndefined() and idx.IsOutgoing())
@@ -185,7 +184,7 @@ WritePsiToFludsAndOutflow(double* psi,
         for (std::uint32_t fi = 0; fi < face.num_face_nodes; ++fi)
         {
           const std::uint32_t i = face.cell_mapping_data[fi];
-          const double outflow = direction.weight * mu * face.IntS_shapeI_data[fi] * psi[i];
+          const double outflow = direction.weight * mu * face_IntS_shapeI_data[fi] * psi[i];
           crb::atomic_add(face.outflow + args.groupset_start + group_idx, outflow);
         }
       }

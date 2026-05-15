@@ -575,7 +575,6 @@ DiscreteOrdinatesProblem::BuildRuntime()
     WGDSA::Init(*this, groupset);
     TGDSA::Init(*this, groupset);
   }
-  log.Log() << program_timer.GetTimeString() << " Initialized angle aggregation.";
 
   // Initialize runtime boundary data
   RebuildBoundaryRuntimeData();

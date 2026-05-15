@@ -10,43 +10,47 @@
 namespace opensn
 {
 
-/// Face view from contiguous block of memory
-struct FaceView
+enum FaceViewGetter : unsigned int
 {
-  __inline_host_dev__ FaceView() {}
-  __inline_host_dev__ void Update(const char* face_data)
-  {
-    // number of face nodes and face node offset
-    const std::uint32_t* num_face_nodes_data = reinterpret_cast<const std::uint32_t*>(face_data);
-    num_face_nodes = *(num_face_nodes_data++);
-    face_node_offset = *(num_face_nodes_data++);
-    face_data = reinterpret_cast<const char*>(num_face_nodes_data);
-    // outflow
-    double* const* outflow_data = reinterpret_cast<double* const*>(face_data);
-    outflow = *(outflow_data++);
-    face_data = reinterpret_cast<const char*>(outflow_data);
-    // normal
-    const double* normal_vector_data = reinterpret_cast<const double*>(face_data);
-    normal[0] = normal_vector_data[0];
-    normal[1] = normal_vector_data[1];
-    normal[2] = normal_vector_data[2];
-    face_data = reinterpret_cast<const char*>(normal_vector_data+3);
-    // M_surf matrix
-    M_surf_data = reinterpret_cast<const double*>(face_data);
-    face_data = reinterpret_cast<const char*>(M_surf_data + num_face_nodes * num_face_nodes);
-    // IntS_shapeI_data
-    IntS_shapeI_data = reinterpret_cast<const double*>(face_data);
-    face_data = reinterpret_cast<const char*>(IntS_shapeI_data + num_face_nodes);
-    // cell mapping data
-    cell_mapping_data = reinterpret_cast<const std::uint32_t*>(face_data);
-  }
+  None = 0,
+  WithMSurf = 1,
+  WithSurfIntegrals = 2
+};
+
+struct FaceViewStaticData
+{
+  __inline_host_dev__ FaceViewStaticData() {}
 
   std::uint32_t num_face_nodes;
   std::uint32_t face_node_offset;
   double* outflow;
   std::array<double, 3> normal;
-  const double* M_surf_data;
-  const double* IntS_shapeI_data;
+};
+
+/// Face view from contiguous block of memory
+struct FaceView : public FaceViewStaticData
+{
+  __inline_host_dev__ FaceView() {}
+
+  template <FaceViewGetter g = FaceViewGetter::None>
+  __inline_host_dev__ const double* Update(const char* face_data)
+  {
+    const FaceViewStaticData* face_static_data =
+      reinterpret_cast<const FaceViewStaticData*>(face_data);
+    static_cast<FaceViewStaticData&>(*this) = *(face_static_data++);
+    face_data = reinterpret_cast<const char*>(face_static_data);
+
+    const double* result = nullptr;
+    if constexpr (g == FaceViewGetter::WithMSurf)
+      result = reinterpret_cast<const double*>(face_data);
+    else if constexpr (g == FaceViewGetter::WithSurfIntegrals)
+      result = reinterpret_cast<const double*>(face_data) + num_face_nodes * num_face_nodes;
+
+    face_data += (num_face_nodes * num_face_nodes + num_face_nodes) * sizeof(double);
+    cell_mapping_data = reinterpret_cast<const std::uint32_t*>(face_data);
+    return result;
+  }
+
   const std::uint32_t* cell_mapping_data;
 };
 
@@ -81,9 +85,10 @@ struct CellView
     face_data = reinterpret_cast<const char*>(offset_face_data + num_faces);
   }
 
-  __inline_host_dev__ void GetFaceView(FaceView& face, const std::uint32_t& face_index)
+  template <FaceViewGetter g = FaceViewGetter::None>
+  __inline_host_dev__ const double* GetFaceView(FaceView& face, const std::uint32_t& face_index)
   {
-    face.Update(face_data + offset_face_data[face_index]);
+    return face.Update<g>(face_data + offset_face_data[face_index]);
   }
 
   std::uint32_t num_nodes;
